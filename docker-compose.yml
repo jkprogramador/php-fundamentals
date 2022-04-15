@@ -2,7 +2,6 @@ services:
   app:
     image: php-apache:latest
     container_name: php-fundamentals
-    command: /bin/sh -c "cd /usr/src && php main.php"
     volumes:
       - ./src:/usr/src
     ports:
