@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 error_reporting(E_ERROR | E_PARSE);
@@ -69,7 +70,8 @@ echo gettype($bicycle->make);
 class Motorcycle
 {
     public function __construct(public string $make)
-    {}
+    {
+    }
 }
 $m = new Motorcycle('Honda');
 echo "\n{$m->make}";
@@ -153,10 +155,11 @@ echo <<<TEXT
 Commom use of null coalescing operator: memoization function that stores a result once it's calculated.
 
 TEXT;
-function match_pattern(string $input, string $pattern) {
+function match_pattern(string $input, string $pattern)
+{
     static $cache = [];
 
-    return $cache[$input][$pattern] ??= (function(string $input, string $pattern) {
+    return $cache[$input][$pattern] ??= (function (string $input, string $pattern) {
         preg_match($pattern, $input, $matches);
 
         return $matches[0];
@@ -218,7 +221,8 @@ class PendingExam implements Exam
 class ScheduledExam implements Exam
 {
     public function __construct(protected Date $examDate)
-    {}
+    {
+    }
 
     public function getExamDate(): Date
     {
@@ -233,3 +237,45 @@ class UnknownDate extends Date
         return '/';
     }
 }
+
+echo <<<TEXT
+
+Union types allow you to type hint several types. Be careful, too many types may indicate a function is doing too much at once.
+
+TEXT;
+interface Repository
+{
+    public function find(int|string $id): bool;
+}
+
+echo <<<TEXT
+
+static return type indicates that the function returns the class where that function was called from.
+It differs from self since that one always refers to the parent class, while static can also indicate child class.
+
+TEXT;
+abstract class Vehicle
+{
+    public static function make(): static
+    {
+        return new (get_called_class());
+    }
+}
+
+class Car extends Vehicle
+{
+    public function foo(): void
+    {
+        echo "Vroom!!!\n";
+    }
+}
+
+$child = Car::make();
+$child->foo();
+echo get_class($child);
+
+echo <<<TEXT
+
+mixed type is shorthand for the union of array|bool|callable|int|float|null|object|resource|string.
+
+TEXT;
