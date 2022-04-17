@@ -1,51 +1,48 @@
 <?php
 
-mysqli_report(MYSQLI_REPORT_STRICT);
+define('DB_NAME', getenv('MYSQL_DATABASE'));
+define('DB_USER', 'root');
+define('DB_PASSWORD', getenv('MYSQL_ROOT_PASSWORD'));
 
 try {
     echo <<<TEXT
 
-    Querying via MySQLi driver
+    Querying via PDO (PHP Data Objects)
+    Check http://php.net/manual/en/pdo.constants.php for fetch styles.
 
 
     TEXT;
 
-    $mysqli = new mysqli('db', 'root', getenv('MYSQL_ROOT_PASSWORD'), getenv('MYSQL_DATABASE'));
+    $conn = new PDO('mysql:host=db;dbname=' . DB_NAME, DB_USER, DB_PASSWORD, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
-    $result = $mysqli->query('SELECT * FROM customer WHERE email LIKE "MARIA.MILLER@sakilacustomer.org"');
+    $result = $conn->query('SELECT * FROM customer LIMIT 5');
 
-    // Return current row of a result set as an object
-    $customer = $result->fetch_object();
+    $customers = $result->fetchAll(PDO::FETCH_OBJ);
 
-    echo $customer->first_name, ' ', $customer->last_name, PHP_EOL;
+    foreach ($customers as $customer) {
+        echo $customer->first_name, ' ', $customer->last_name, PHP_EOL;
+    }
 
     echo <<<TEXT
 
 
-    Binding parameters
+    PDO provides named binding parameters, improving readability.
 
 
     TEXT;
 
-    $customerIdGt = 100;
-    $storeId = 2;
-    $email = '%ANN%';
+    $statement = $conn->prepare('SELECT * FROM customer WHERE customer_id > :customer_id AND store_id = :store_id AND email LIKE :email');
+    $statement->execute([
+        ':customer_id' => 100,
+        ':store_id' => 2,
+        ':email' => '%ANN%',
+    ]);
 
-    $statement = $mysqli->prepare('SELECT * FROM customer WHERE customer_id > ? AND store_id = ? AND email LIKE ?');
+    $customers = $statement->fetchAll(PDO::FETCH_OBJ);
 
-    // First parameter of bind_param() is a string containing one or more types for the corresponding bind variables:
-    // i (integer); d (double); s (string); b (blob)
-    $statement->bind_param('iis', $customerIdGt, $storeId, $email);
-
-    $statement->execute();
-
-    $result = $statement->get_result();
-
-    while ($customer = $result->fetch_object()) {
+    foreach ($customers as $customer) {
         echo $customer->first_name, ' ', $customer->last_name, PHP_EOL;
     }
-
-    $statement->close();
 
     echo <<<TEXT
 
@@ -55,23 +52,11 @@ try {
 
     TEXT;
 
-    $address = 'The street';
-    $district = 'The district';
-    $cityId = 135;
-    $postalCode = '31000';
-    $phone = '123456789';
-    $x = 56;
-    $y = 70;
-
-    $statement = $mysqli->prepare('INSERT INTO address (address, district, city_id, postal_code, phone, location) VALUES (?, ?, ?, ?, ?, POINT(?, ?));');
-    $statement->bind_param('ssissii', $address, $district, $cityId, $postalCode, $phone, $x, $y);
-    $statement->execute();
-    $statement->close();
-
-    // Quick and dirty way to fetch newly created address id
-    $addressId = $mysqli->insert_id;
-
-    echo "{$addressId}", PHP_EOL;
+    $statement = $conn->prepare('INSERT INTO actor (first_name, last_name) VALUES (:first_name, :last_name);');
+    $statement->execute([
+        ':first_name' => 'Jane',
+        ':last_name' => 'Doe',
+    ]);
 
     echo <<<TEXT
 
@@ -81,12 +66,11 @@ try {
 
     TEXT;
 
-    $address = 'The new street';
-
-    $statement = $mysqli->prepare('UPDATE address SET address = ? WHERE address_id = ?');
-    $statement->bind_param('si', $address, $addressId);
-    $statement->execute();
-    $statement->close();
+    $statement = $conn->prepare('UPDATE address SET phone = :phone WHERE address_id = :address_id');
+    $statement->execute([
+        ':phone' => '888777666555',
+        ':address_id' => 600,
+    ]);
 
     echo <<<TEXT
 
@@ -96,12 +80,8 @@ try {
 
     TEXT;
 
-    $paymentId = 500;
-
-    $statement = $mysqli->prepare('DELETE FROM payment WHERE payment_id = ?');
-    $statement->bind_param('i', $paymentId);
-    $statement->execute();
-    $statement->close();
+    $statement = $conn->prepare('DELETE FROM payment WHERE payment_id = :payment_id');
+    $statement->execute([':payment_id' => 16046]);
 
     echo <<<TEXT
 
@@ -112,26 +92,29 @@ try {
 
     TEXT;
 
-    $mysqli->begin_transaction(MYSQLI_TRANS_START_READ_WRITE);
+    $conn->beginTransaction();
 
-    $mysqli->query('INSERT INTO actor (first_name, last_name) VALUES ("John", "Doe");');
-    $actorId = $mysqli->insert_id;
-    $statement = $mysqli->prepare('SELECT * from actor WHERE actor_id = ?');
-    $statement->bind_param('i', $actorId);
-    $statement->execute();
-    $result = $statement->get_result();
-    $actor = $result->fetch_object();
+    $statement = $conn->prepare('INSERT INTO actor (first_name, last_name) VALUES (:first_name, :last_name)');
+    $statement->execute([
+        ':first_name' => 'Boo',
+        ':last_name' => 'Doe',
+    ]);
 
-    $mysqli->commit();
+    // Fetch newly created address id
+    $actorId = $conn->lastInsertId();
+
+    $statement = $conn->prepare('SELECT * from actor WHERE actor_id = :actor_id');
+    $statement->execute([':actor_id' => $actorId]);
+    $actor = $statement->fetchObject();
+
+    $conn->commit();
 
     echo $actor->first_name, ' ', $actor->last_name, PHP_EOL;
-} catch (mysqli_sql_exception $e) {
+} catch (PDOException $e) {
 
-    $mysqli->rollback();
+    $conn->rollback();
 
     echo $e->getMessage(), PHP_EOL;
 } finally {
-    $mysqli->close();
-
     exit;
 }
