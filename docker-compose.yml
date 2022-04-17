@@ -2,7 +2,42 @@ services:
   app:
     image: php-apache:latest
     container_name: php-fundamentals
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./src:/usr/src
     ports:
       - 8000:80
+    env_file:
+      - .env
+
+  db:
+    image: mysql:8.0.28
+    container_name: mysql
+    volumes:
+      - ./sakila-db:/usr/src
+      - php-apache_db_data:/var/lib/mysql
+    restart: "always"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    ports:
+      - 3306:3306
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-p${MYSQL_ROOT_PASSWORD}"
+        ]
+      interval: 8s
+      timeout: 30s
+      retries: 3
+
+volumes:
+  php-apache_db_data:
+    external: true
